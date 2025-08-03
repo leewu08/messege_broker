@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Kafka Chat</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  </head>
+  <body>
+    <h2>채팅</h2>
+    <input id="msg" placeholder="메시지 입력" />
+    <button onclick="send()">보내기</button>
+    <ul id="chat"></ul>
+
+    <script>
+      const socket = io();
+
+      function send() {
+        const msg = document.getElementById("msg").value;
+        socket.emit("chat_message", msg);
+        document.getElementById("msg").value = "";
+      }
+
+      socket.on("new_message", (msg) => {
+        const li = document.createElement("li");
+        li.textContent = msg;
+        document.getElementById("chat").appendChild(li);
+      });
+    </script>
+  </body>
+</html>
