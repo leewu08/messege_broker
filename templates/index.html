@@ -1,35 +1,112 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
-  <title>Kafka Chat</title>
+  <meta charset="utf-8" />
+  <title>Kafka Chat (멀티룸)</title>
+  <style>
+    body{font-family:sans-serif;margin:2rem;max-width:640px}
+    #chat{list-style:none;padding:0;margin:1rem 0;height:50vh;overflow-y:auto;border:1px solid #ccc;border-radius:4px}
+    #chat li{margin:.25rem 0;padding:.25rem .5rem}
+    #controls{display:flex;gap:.5rem}
+    #controls input{flex:1 1 auto}
+  </style>
 </head>
 <body>
-  <ul id="chat"></ul>
-  <input type="text" id="msg" />
-  <button onclick="sendMessage()">Send</button>
+  <!-- 🚪 로비: 방 / 닉네임 입력 -->
+  <div id="lobby">
+    <input type="text" id="room" placeholder="방 ID (예: roomA)" />
+    <input type="text" id="user" placeholder="닉네임 (옵션)" />
+    <button id="join-btn">Join</button>
+  </div>
+
+  <!-- 💬 채팅 UI (join 이후 표시) -->
+  <div id="chat-ui" style="display:none;">
+    <h3 id="room-title"></h3>
+
+    <ul id="chat"></ul>
+
+    <div id="controls">
+      <input type="text" id="msg" placeholder="메시지 입력" />
+      <button id="send-btn">Send</button>
+      <button id="switch-btn" title="다른 채널로 이동">🔄</button>
+    </div>
+  </div>
 
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
   <script>
     const socket = io();
 
-    socket.on('connect', () => {
-      console.log("✅ 서버와 연결됨");
+    let currentRoom = "";
+    let currentUser = "";
+
+    /* ---------- Socket 이벤트 ---------- */
+    socket.on('connect', ()=>console.log('✅ 서버와 연결'));
+
+    socket.on('new_message', data => {
+      if(data.room !== currentRoom) return; // 다른 채널이면 무시
+      appendMessage(`[${data.user}] ${data.msg}`);
     });
 
-    socket.on('new_message', (msg) => {
-      const chatBox = document.getElementById("chat");
-      const item = document.createElement("li");
-      item.textContent = msg;
-      chatBox.appendChild(item);
-    });
+    /* ---------- DOM 헬퍼 ---------- */
+    const $ = sel => document.querySelector(sel);
+    const chatBox = $('#chat');
 
-    function sendMessage() {
-      const input = document.getElementById("msg");
-      const message = input.value;
-      if (message.trim() !== "") {
-        socket.emit("chat_message", message);
-        input.value = "";
-      }
+    function appendMessage(text){
+      const li=document.createElement('li');
+      li.textContent=text;
+      chatBox.appendChild(li);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function clearChat(){ chatBox.innerHTML=''; }
+
+    /* ---------- 로비 → 채널 Join ---------- */
+    $('#join-btn').addEventListener('click', joinRoom);
+    $('#send-btn').addEventListener('click', sendMessage);
+    $('#switch-btn').addEventListener('click', switchRoom);
+
+    function joinRoom(){
+      const room = $('#room').value.trim();
+      const user = $('#user').value.trim() || 'Anonymous';
+      if(!room){ alert('방 ID를 입력하세요'); return; }
+
+      // 이전 채널이 있으면 떠난다
+      if(currentRoom){ socket.emit('leave', {room: currentRoom}); }
+
+      // 상태 업데이트
+      currentRoom = room;
+      currentUser = user;
+      clearChat();
+
+      // 서버에 join 요청 → 최근 10개 메시지가 다시 도착함
+      socket.emit('join', {room});
+
+      // UI 전환
+      $('#lobby').style.display='none';
+      $('#chat-ui').style.display='block';
+      $('#room-title').textContent = `Room: ${room}`;
+      $('#msg').focus();
+    }
+
+    /* ---------- 메시지 전송 ---------- */
+    function sendMessage(){
+      const input = $('#msg');
+      const message = input.value.trim();
+      if(!message) return;
+
+      socket.emit('chat_message', { room: currentRoom, user: currentUser, msg: message });
+      input.value='';
+    }
+
+    /* ---------- 채널 스위치 (로비로 복귀) ---------- */
+    function switchRoom(){
+      // 현재 채널 떠나기
+      if(currentRoom){ socket.emit('leave', {room: currentRoom}); }
+      currentRoom = "";
+      clearChat();
+      $('#chat-ui').style.display='none';
+      $('#lobby').style.display='block';
+      $('#room').focus();
     }
   </script>
 </body>
