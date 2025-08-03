@@ -1,29 +1,36 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>Kafka Chat</title>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-  </head>
-  <body>
-    <h2>채팅</h2>
-    <input id="msg" placeholder="메시지 입력" />
-    <button onclick="send()">보내기</button>
-    <ul id="chat"></ul>
+<head>
+  <title>Kafka Chat</title>
+</head>
+<body>
+  <ul id="chat"></ul>
+  <input type="text" id="msg" />
+  <button onclick="sendMessage()">Send</button>
 
-    <script>
-      const socket = io();
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <script>
+    const socket = io();
 
-      function send() {
-        const msg = document.getElementById("msg").value;
-        socket.emit("chat_message", msg);
-        document.getElementById("msg").value = "";
+    socket.on('connect', () => {
+      console.log("✅ 서버와 연결됨");
+    });
+
+    socket.on('new_message', (msg) => {
+      const chatBox = document.getElementById("chat");
+      const item = document.createElement("li");
+      item.textContent = msg;
+      chatBox.appendChild(item);
+    });
+
+    function sendMessage() {
+      const input = document.getElementById("msg");
+      const message = input.value;
+      if (message.trim() !== "") {
+        socket.emit("chat_message", message);
+        input.value = "";
       }
-
-      socket.on("new_message", (msg) => {
-        const li = document.createElement("li");
-        li.textContent = msg;
-        document.getElementById("chat").appendChild(li);
-      });
-    </script>
-  </body>
+    }
+  </script>
+</body>
 </html>

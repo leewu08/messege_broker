@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, request  
 from flask_socketio import SocketIO, emit
 from kafka import KafkaProducer, KafkaConsumer
 from pymongo import MongoClient
@@ -33,6 +33,12 @@ def handle_chat_message(msg):
     })
 
 
+@socketio.on("connect")
+def on_connect():
+    print(f"✅ 클라이언트 접속: {request.sid}")
+    recent_messages = collection.find().sort("timestamp", -1).limit(10)
+    for msg in reversed(list(recent_messages)):  # 시간순 정렬
+        socketio.emit("new_message", msg["message"], room=request.sid)
     
 
 # ✅ Kafka → 사용자 브로드캐스트 + 저장
