@@ -1,0 +1,32 @@
+<!-- templates/login.html -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>로그인</title>
+</head>
+<body>
+  {% include "partials/header.html" %}
+
+  
+  <h2>로그인</h2>
+  
+  <form method="POST" action="{{ url_for('login_page') }}">
+    <input type="text" name="username" placeholder="아이디" required><br>
+    <input type="password" name="password" placeholder="비밀번호" required><br>
+    <button type="submit">로그인</button>
+  </form>
+
+  <p>아직 회원이 아니신가요? 
+    <a href="{{ url_for('register_page') }}">회원가입</a>
+  </p>
+
+  <hr>
+
+  <p>비로그인으로 사용하시겠어요?</p>
+  <form method="GET" action="{{ url_for('chat_page') }}">
+    <input type="text" name="nickname" placeholder="닉네임 (선택)">
+    <button type="submit">입장하기</button>
+  </form>
+</body>
+</html>
