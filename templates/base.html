@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="p-6">
+<!-- 파셜/유저접속  -->
+{% include "partials/_user_list.html" %}  
+
+{% block content %}{% endblock %}
+
+  <!-- ▽ 모든 화면에서 공용으로 쓰는 Socket.IO 클라이언트 -->
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <script src="{{ url_for('static', filename='socket.js') }}"></script>
+</body>
+</html>
