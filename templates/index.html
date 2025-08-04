@@ -1,30 +1,32 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8">
   <title>Kafka Chat (멀티룸)</title>
   <style>
-    body{font-family:sans-serif;margin:2rem;max-width:640px}
-    #chat{list-style:none;padding:0;margin:1rem 0;height:50vh;overflow-y:auto;border:1px solid #ccc;border-radius:4px}
-    #chat li{margin:.25rem 0;padding:.25rem .5rem}
-    #controls{display:flex;gap:.5rem}
+    body        {font-family:sans-serif;margin:2rem;max-width:640px}
+    #chat       {list-style:none;padding:0;margin:1rem 0;height:50vh;
+                 overflow-y:auto;border:1px solid #ccc;border-radius:4px}
+    #chat li    {margin:.25rem 0;padding:.25rem .5rem;word-break:break-all}
+    #controls   {display:flex;gap:.5rem}
     #controls input{flex:1 1 auto}
   </style>
 </head>
 <body>
-  <!-- 🚪 로비: 방 / 닉네임 입력 -->
+  <!-- 🚪 로비 -->
   <div id="lobby">
-    <input type="text" id="room" placeholder="방 ID (예: roomA)" />
-    <input type="text" id="user" placeholder="닉네임 (옵션)" />
+    <input id="room" placeholder="방 ID (예: roomA)">
+    <input id="user" placeholder="닉네임 (옵션)">
     <button id="join-btn">Join</button>
   </div>
 
-  <!-- 💬 채팅 UI (join 이후 표시) -->
-  <div id="chat-ui" style="display:none;">
+  <!-- 💬 채팅 -->
+  <div id="chat-ui" hidden>
     <h3 id="room-title"></h3>
     <ul id="chat"></ul>
+
     <div id="controls">
-      <input type="text" id="msg" placeholder="메시지 입력" />
+      <input id="msg" placeholder="메시지 입력">
       <button id="send-btn">Send</button>
       <button id="switch-btn" title="다른 채널로 이동">🔄</button>
     </div>
@@ -32,56 +34,46 @@
 
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
   <script>
-    const socket = io();
+    /* ─────────────── 전역 상태 ─────────────── */
+    const socket       = io();
+    let currentRoom    = "";
+    let currentUser    = "";
 
-    let currentRoom = "";
-    let currentUser = "";
-
-    /* ---------- DOM 헬퍼 ---------- */
-    const $ = sel => document.querySelector(sel);
+    /* ─────────────── DOM 헬퍼 ─────────────── */
+    const $       = s => document.querySelector(s);
     const chatBox = $('#chat');
 
-    function appendMessage(text) {
-      const li = document.createElement('li');
+    const appendMessage = text => {
+      const li   = document.createElement('li');
       li.textContent = text;
-      chatBox.appendChild(li);
+      chatBox.append(li);
       chatBox.scrollTop = chatBox.scrollHeight;
-    }
+    };
+    const clearChat = () => (chatBox.innerHTML = '');
 
-    function clearChat() {
-      chatBox.innerHTML = '';
-    }
+    /* ───────────── Socket 이벤트 ───────────── */
+    socket.on('connect', () => console.log('✅ 서버와 연결됨'));
 
-    /* ---------- 이벤트 핸들링 ---------- */
-    socket.on('connect', () => console.log('✅ 서버와 연결'));
-
+    // 실시간·히스토리 모두 new_message 로 수신
     socket.on('new_message', data => {
       if (data.room !== currentRoom) return;
-      const timestamp = new Date().toLocaleString(); // 새 메시지에 현재 클라이언트 시간 사용
-      appendMessage(`[${timestamp}] [${data.user}] ${data.msg}`);
+
+      const tsKst = new Date(data.timestamp).toLocaleString('ko-KR');
+      appendMessage(`[${tsKst}] [${data.user}] ${data.msg}`);
     });
 
-    socket.on('chat_history', messages => {
-      messages.forEach(m => {
-        const time = new Date(m.timestamp).toLocaleString('ko-KR');
-        appendMessage(`[${time}] [${m.user}] ${m.msg}`);
-      });
-    });
-
-    $('#join-btn').addEventListener('click', joinRoom);
-    $('#send-btn').addEventListener('click', sendMessage);
-    $('#switch-btn').addEventListener('click', switchRoom);
-    $('#msg').addEventListener('keypress', e => {
+    /* ───────────── UI 이벤트 ───────────── */
+    $('#join-btn').onclick   = joinRoom;
+    $('#send-btn').onclick   = sendMessage;
+    $('#switch-btn').onclick = switchRoom;
+    $('#msg').addEventListener('keydown', e => {
       if (e.key === 'Enter') sendMessage();
     });
 
     function joinRoom() {
       const room = $('#room').value.trim();
       const user = $('#user').value.trim() || 'Anonymous';
-      if (!room) {
-        alert('방 ID를 입력하세요');
-        return;
-      }
+      if (!room) return alert('방 ID를 입력하세요');
 
       if (currentRoom) socket.emit('leave', { room: currentRoom });
 
@@ -91,21 +83,21 @@
 
       socket.emit('join', { room });
 
-      $('#lobby').style.display = 'none';
-      $('#chat-ui').style.display = 'block';
+      $('#lobby').hidden   = true;
+      $('#chat-ui').hidden = false;
       $('#room-title').textContent = `Room: ${room}`;
       $('#msg').focus();
     }
 
     function sendMessage() {
       const input = $('#msg');
-      const message = input.value.trim();
-      if (!message) return;
+      const text  = input.value.trim();
+      if (!text) return;
 
       socket.emit('chat_message', {
         room: currentRoom,
         user: currentUser,
-        msg: message
+        msg : text
       });
       input.value = '';
     }
@@ -114,8 +106,9 @@
       if (currentRoom) socket.emit('leave', { room: currentRoom });
       currentRoom = "";
       clearChat();
-      $('#chat-ui').style.display = 'none';
-      $('#lobby').style.display = 'block';
+
+      $('#chat-ui').hidden = true;
+      $('#lobby').hidden   = false;
       $('#room').focus();
     }
   </script>
