@@ -22,9 +22,7 @@
   <!-- 💬 채팅 UI (join 이후 표시) -->
   <div id="chat-ui" style="display:none;">
     <h3 id="room-title"></h3>
-
     <ul id="chat"></ul>
-
     <div id="controls">
       <input type="text" id="msg" placeholder="메시지 입력" />
       <button id="send-btn">Send</button>
@@ -39,73 +37,85 @@
     let currentRoom = "";
     let currentUser = "";
 
-    /* ---------- Socket 이벤트 ---------- */
-    socket.on('connect', ()=>console.log('✅ 서버와 연결'));
-
-    socket.on('new_message', data => {
-      if(data.room !== currentRoom) return; // 다른 채널이면 무시
-      appendMessage(`[${data.user}] ${data.msg}`);
-    });
-
     /* ---------- DOM 헬퍼 ---------- */
     const $ = sel => document.querySelector(sel);
     const chatBox = $('#chat');
 
-    function appendMessage(text){
-      const li=document.createElement('li');
-      li.textContent=text;
+    function appendMessage(text) {
+      const li = document.createElement('li');
+      li.textContent = text;
       chatBox.appendChild(li);
       chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-    function clearChat(){ chatBox.innerHTML=''; }
+    function clearChat() {
+      chatBox.innerHTML = '';
+    }
 
-    /* ---------- 로비 → 채널 Join ---------- */
+    /* ---------- 이벤트 핸들링 ---------- */
+    socket.on('connect', () => console.log('✅ 서버와 연결'));
+
+    socket.on('new_message', data => {
+      if (data.room !== currentRoom) return;
+      const timestamp = new Date().toLocaleString(); // 새 메시지에 현재 클라이언트 시간 사용
+      appendMessage(`[${timestamp}] [${data.user}] ${data.msg}`);
+    });
+
+    socket.on('chat_history', messages => {
+      messages.forEach(m => {
+        const time = new Date(m.timestamp).toLocaleString('ko-KR');
+        appendMessage(`[${time}] [${m.user}] ${m.msg}`);
+      });
+    });
+
     $('#join-btn').addEventListener('click', joinRoom);
     $('#send-btn').addEventListener('click', sendMessage);
     $('#switch-btn').addEventListener('click', switchRoom);
+    $('#msg').addEventListener('keypress', e => {
+      if (e.key === 'Enter') sendMessage();
+    });
 
-    function joinRoom(){
+    function joinRoom() {
       const room = $('#room').value.trim();
       const user = $('#user').value.trim() || 'Anonymous';
-      if(!room){ alert('방 ID를 입력하세요'); return; }
+      if (!room) {
+        alert('방 ID를 입력하세요');
+        return;
+      }
 
-      // 이전 채널이 있으면 떠난다
-      if(currentRoom){ socket.emit('leave', {room: currentRoom}); }
+      if (currentRoom) socket.emit('leave', { room: currentRoom });
 
-      // 상태 업데이트
       currentRoom = room;
       currentUser = user;
       clearChat();
 
-      // 서버에 join 요청 → 최근 10개 메시지가 다시 도착함
-      socket.emit('join', {room});
+      socket.emit('join', { room });
 
-      // UI 전환
-      $('#lobby').style.display='none';
-      $('#chat-ui').style.display='block';
+      $('#lobby').style.display = 'none';
+      $('#chat-ui').style.display = 'block';
       $('#room-title').textContent = `Room: ${room}`;
       $('#msg').focus();
     }
 
-    /* ---------- 메시지 전송 ---------- */
-    function sendMessage(){
+    function sendMessage() {
       const input = $('#msg');
       const message = input.value.trim();
-      if(!message) return;
+      if (!message) return;
 
-      socket.emit('chat_message', { room: currentRoom, user: currentUser, msg: message });
-      input.value='';
+      socket.emit('chat_message', {
+        room: currentRoom,
+        user: currentUser,
+        msg: message
+      });
+      input.value = '';
     }
 
-    /* ---------- 채널 스위치 (로비로 복귀) ---------- */
-    function switchRoom(){
-      // 현재 채널 떠나기
-      if(currentRoom){ socket.emit('leave', {room: currentRoom}); }
+    function switchRoom() {
+      if (currentRoom) socket.emit('leave', { room: currentRoom });
       currentRoom = "";
       clearChat();
-      $('#chat-ui').style.display='none';
-      $('#lobby').style.display='block';
+      $('#chat-ui').style.display = 'none';
+      $('#lobby').style.display = 'block';
       $('#room').focus();
     }
   </script>
