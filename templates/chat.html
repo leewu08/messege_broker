@@ -1,9 +1,12 @@
-{% extends "base.html" %}
-
-{% block title %}Kafka Chat – 채팅{% endblock %}
-
-{% block content %}
+<div id="user-list" style="border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem;">
+  <h3>🟢 현재 접속자 목록</h3>
+  <ul id="user-list-ul">
+    <!-- JS로 동적으로 채워짐 -->
+    <li>접속자 정보를 불러오는 중...</li>
+  </ul>
+</div>
 <style>
+  
   body { font-family: sans-serif; margin: 2rem; max-width: 640px }
   #chat { list-style: none; padding: 0; margin: 1rem 0; height: 50vh;
           overflow-y: auto; border: 1px solid #ccc; border-radius: 4px }
@@ -33,11 +36,10 @@
 
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <script>
-  // 🔐 JWT 기반으로 Flask에서 넘긴 유저명
   const sessionUsername = "{{ username | default('') }}";
 
-  const socket = io();
   let currentRoom = "";
   let currentUser = "";
 
@@ -51,6 +53,25 @@
     chatBox.scrollTop = chatBox.scrollHeight;
   };
   const clearChat = () => (chatBox.innerHTML = '');
+
+  // ✅ 유저명 설정
+  const rawUsername = sessionUsername || `Anon-${Math.random().toString(36).slice(2, 6)}`;
+  currentUser = rawUsername;
+
+  // ✅ socket 연결 시 user명 전달
+  const socket = io(`/?user=${encodeURIComponent(rawUsername)}`);
+
+  // ✅ 접속자 목록 업데이트 받기
+  socket.on("user_list", (users) => {
+    const userList = document.getElementById("user-list-ul");
+    if (!userList) return;
+    userList.innerHTML = "";
+    users.forEach((user) => {
+      const li = document.createElement("li");
+      li.textContent = user;
+      userList.appendChild(li);
+    });
+  });
 
   socket.on('connect', () => console.log('✅ 서버와 연결됨'));
 
@@ -82,19 +103,15 @@
     const room = $('#room').value.trim();
     if (!room) return alert('방 ID를 입력하세요');
 
-    let user;
-    if (sessionUsername) {
-      user = sessionUsername;
-    } else {
+    if (!currentUser) {
       const nick = $('#user').value.trim();
-      const rand = Math.floor(1000 + Math.random() * 9000);
-      user = `익명#${rand}${nick ? ' ' + nick : ''}`;
+      if (!nick) return alert('닉네임을 입력하세요');
+      currentUser = nick;
     }
 
     if (currentRoom) socket.emit('leave', { room: currentRoom });
 
     currentRoom = room;
-    currentUser = user;
     clearChat();
 
     socket.emit('join', { room });
@@ -121,4 +138,3 @@
     $('#room').focus();
   }
 </script>
-{% endblock %}
