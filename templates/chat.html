@@ -3,26 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <title>Kafka Chat – 채팅</title>
-  <style>
-    body { font-family: sans-serif; margin: 2rem auto; max-width: 640px; }
-    #chat { list-style: none; padding: 0; margin: 1rem 0; height: 50vh;
-            overflow-y: auto; border: 1px solid #ccc; border-radius: 4px; }
-    #chat li { margin: .25rem 0; padding: .25rem .5rem; word-break: break-word; }
-    #controls { display: flex; gap: .5rem; margin-top: 0.5rem; }
-    #controls input { flex: 1 1 auto; }
-    #user-list { border: 1px solid #ccc; padding: 1rem; margin-top: 2rem; }
-  </style>
+
 </head>
 <body>
 
-  <h2>Kafka Chat</h2>
-
   {% if username %}
-    <p><strong>{{ username }}</strong>님 환영합니다!</p>
+    <p><strong>{{ username }}</strong>님 반갑습니다!</p>
+    <button onclick="location.href='{{ url_for('chat_page') }}'">💬 채팅하러 가기</button>
+    <button onclick="location.href='{{ url_for('post') }}'">📄 게시판 가기</button>
     <p><a href="{{ url_for('logout') }}">🔓 로그아웃</a></p>
-  {% else %}
-    <p>❌ 사용자 정보가 없습니다.</p>
+
   {% endif %}
+
+
+
+
+  <h2>Kafka Chat</h2>
 
   <!-- 🚪 로비 -->
   <div id="lobby">

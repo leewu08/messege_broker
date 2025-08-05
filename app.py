@@ -126,6 +126,7 @@ def delete_post(post_id):
 
 ###############################################
 # ■ Flask 라우티드
+
 @app.route("/")
 def index():
     token = request.cookies.get("access_token")
@@ -139,6 +140,26 @@ def index():
         except jwt.InvalidTokenError:
             pass
     return render_template("index.html", username=username)
+
+
+#---------------------jwt손실 방지책
+def get_current_username() -> str | None:
+    token = request.cookies.get("access_token")
+    if token:
+        try:
+            decoded = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            return decoded.get("username")
+        except:
+            return None
+    return None
+
+
+@app.context_processor
+def inject_user():
+    return {"username": get_current_username()}
+
+
+
 
 @app.route("/register", methods=["GET", "POST"])
 def register_page():
@@ -179,6 +200,7 @@ def logout():
 
 @app.route("/chat")
 def chat_page():
+    username = get_current_username()
     token = request.cookies.get("access_token")
     if not token:
         return redirect(url_for("index"))
