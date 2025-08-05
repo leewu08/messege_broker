@@ -26,181 +26,170 @@
       width: 100%;
       margin: 0.2rem 0;
     }
-    .user-dropdown {
-      position: relative;
-      margin-bottom: 0.5rem;
-    }
+    .user-dropdown { position: relative; margin-bottom: 0.5rem; }
   </style>
 </head>
 <body>
 
-  {% if username %}
-    <p><strong>{{ username }}</strong>님 반갑습니다!</p>
-    <button onclick="location.href='{{ url_for('chat_page') }}'">💬 채팅하러 가기</button>
-    <button onclick="location.href='{{ url_for('post') }}'">📄 게시판 가기</button>
-    <p><a href="{{ url_for('logout') }}">🔓 로그아웃</a></p>
-  {% endif %}
+{% if username %}
+  <p><strong>{{ username }}</strong>님 반갑습니다!</p>
+  <button onclick="location.href='{{ url_for('chat_page') }}'">💬 채팅하러 가기</button>
+  <button onclick="location.href='{{ url_for('post') }}'">📄 게시판 가기</button>
+  <p><a href="{{ url_for('logout') }}">🔓 로그아웃</a></p>
+{% endif %}
 
-  <h2>Kafka Chat</h2>
+<h2>Kafka Chat</h2>
 
-  <!-- 🚪 로비 -->
-  <div id="lobby">
-    <input id="room" placeholder="방 ID (예: roomA)">
-    <button id="join-btn">Join</button>
+<!-- 🚪 로비 -->
+<div id="lobby">
+  <input id="room" placeholder="방 ID (예: roomA)">
+  <button id="join-btn">Join</button>
+</div>
+
+<!-- 💬 채팅 -->
+<div id="chat-ui" hidden>
+  <h3 id="room-title"></h3>
+  <ul id="chat"></ul>
+  <div id="controls">
+    <input id="msg" placeholder="메시지 입력">
+    <button id="send-btn">Send</button>
+    <button id="switch-btn" title="다른 채널로 이동">🔄</button>
   </div>
+</div>
 
-  <!-- 💬 채팅 -->
-  <div id="chat-ui" hidden>
-    <h3 id="room-title"></h3>
-    <ul id="chat"></ul>
-    <div id="controls">
-      <input id="msg" placeholder="메시지 입력">
-      <button id="send-btn">Send</button>
-      <button id="switch-btn" title="다른 채널로 이동">🔄</button>
-    </div>
-  </div>
+<!-- 🟢 실시간 접속자 목록 -->
+<div id="user-list">
+  <h3>🟢 현재 접속자 목록</h3>
+  <ul id="user-list-ul">
+    <li>접속자 정보를 불러오는 중...</li>
+  </ul>
+</div>
 
-  <!-- 🟢 실시간 접속자 목록 -->
-  <div id="user-list">
-    <h3>🟢 현재 접속자 목록</h3>
-    <ul id="user-list-ul">
-      <li>접속자 정보를 불러오는 중...</li>
-    </ul>
-  </div>
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<script>
+  /* ===== 전역 ===== */
+  const username     = "{{ username }}";
+  let   currentRoom  = "{{ room|default('') }}";   // DM 링크로 진입 시 값이 들어옴
+  const $            = sel => document.querySelector(sel);
+  const chatBox      = $('#chat');
+  const socket       = io();   // JWT 쿠키 자동 포함
 
-  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-  <script>
-    const username = "{{ username }}";
-    let currentRoom = "";
+  /* ===== 함수 ===== */
+  const clearChat = () => { chatBox.innerHTML = ''; };
+  const scrollBottom = () => { chatBox.scrollTop = chatBox.scrollHeight; };
 
-    const $ = selector => document.querySelector(selector);
-    const chatBox = $('#chat');
-    const socket = io();  // 쿠키 기반 JWT 전송
+  const addLine = (html, className='') => {
+    const li = document.createElement('li');
+    li.innerHTML = html;
+    if (className) li.className = className;
+    chatBox.appendChild(li);
+    scrollBottom();
+  };
 
-    const appendMessage = (text) => {
-      const li = document.createElement('li');
-      li.textContent = text;
-      chatBox.appendChild(li);
-      chatBox.scrollTop = chatBox.scrollHeight;
-    };
+  const generateDMRoom = (uA, uB) => {
+    const [a,b] = [uA, uB].sort();
+    return `dm_${a}_${b}`;
+  };
 
-    const clearChat = () => {
-      chatBox.innerHTML = '';
-    };
+  /* ===== 유저 리스트 & 드롭다운 ===== */
+  socket.on("user_list", users => {
+    const ul = $("#user-list-ul");
+    ul.innerHTML = "";
 
-    // 유저 리스트 표시 + 드롭다운
-    socket.on("user_list", (users) => {
-      const userList = $("#user-list-ul");
-      userList.innerHTML = "";
+    [...new Set(users)].forEach(user => {
+      const li   = document.createElement("li");
+      li.classList.add("user-dropdown");
 
-      [...new Set(users)].forEach(user => {
-        const li = document.createElement("li");
-        li.classList.add("user-dropdown");
+      const span = document.createElement("span");
+      span.textContent = user;
+      span.style.cursor = "pointer";
+      span.style.fontWeight = "bold";
+      li.appendChild(span);
 
-        const span = document.createElement("span");
-        span.textContent = user;
-        span.style.cursor = "pointer";
-        span.style.fontWeight = "bold";
-        li.appendChild(span);
+      if (user !== username) {
+        const menu = document.createElement("div");
+        menu.classList.add("user-dropdown-content");
 
-        // 드롭다운 메뉴 (본인은 제외)
-        if (user !== username) {
-          const menu = document.createElement("div");
-          menu.classList.add("user-dropdown-content");
+        const btnDM = document.createElement("button");
+        btnDM.textContent = "💬 1:1 대화하기";
+        btnDM.onclick = () => {
+          const roomName = generateDMRoom(username, user);
+          window.location.href = `/chat?room=${roomName}`;
+        };
 
-          const btnDetail = document.createElement("button");
-          btnDetail.textContent = "🔍 상세정보";
-          btnDetail.onclick = () => alert(`🔍 ${user} 상세정보 보기`);
+        menu.append(btnDM);
+        li.appendChild(menu);
 
-          const btnPosts = document.createElement("button");
-          btnPosts.textContent = "📝 작성글 보기";
-          btnPosts.onclick = () => alert(`📝 ${user}의 작성글 보기`);
-
-          const btnDM = document.createElement("button");
-          btnDM.textContent = "💬 1:1 대화하기";
-          btnDM.onclick = () => {
-            const roomName = generateDMRoom(username, user);
-            window.location.href = `/chat?room=${roomName}`;
-          };
-
-          menu.append(btnDetail, btnPosts, btnDM);
-          li.appendChild(menu);
-
-          span.addEventListener("click", (e) => {
-            document.querySelectorAll(".user-dropdown-content").forEach(el => {
-              if (el !== menu) el.style.display = "none";
-            });
-            menu.style.display = menu.style.display === "block" ? "none" : "block";
-            e.stopPropagation();
+        span.addEventListener("click", e => {
+          document.querySelectorAll(".user-dropdown-content").forEach(m => {
+            if (m !== menu) m.style.display = "none";
           });
-        }
-
-        userList.appendChild(li);
-      });
+          menu.style.display = menu.style.display === "block" ? "none" : "block";
+          e.stopPropagation();
+        });
+      }
+      ul.appendChild(li);
     });
+  });
 
-    document.addEventListener("click", () => {
-      document.querySelectorAll(".user-dropdown-content").forEach(menu => {
-        menu.style.display = "none";
-      });
+  document.addEventListener("click", () => {
+    document.querySelectorAll(".user-dropdown-content").forEach(m => m.style.display = "none");
+  });
+
+  /* ===== 메시지 수신 ===== */
+  socket.on("new_message", data => {
+    if (data.room !== currentRoom) return;
+    const ts  = new Date(data.timestamp).toLocaleTimeString('ko-KR', {hour12:false});
+    const who = data.sender === username ? '나' : data.sender;
+    const me  = who === '나';
+    addLine(`[${ts}] <b>${who}</b>: ${data.msg}`, me ? 'me' : '');
+  });
+
+  /* ===== 방 입장 / 로비 진입 ===== */
+  const enterRoom = room => {
+    if (currentRoom) socket.emit("leave", {room: currentRoom});
+    currentRoom = room;
+    clearChat();
+    socket.emit("join", {room});
+    $('#lobby').hidden   = true;
+    $('#chat-ui').hidden = false;
+    $('#room-title').textContent = `Room: ${room}`;
+    $('#msg').focus();
+  };
+
+  /* 초기 DM 링크로 바로 진입한 경우 */
+  if (currentRoom) enterRoom(currentRoom);
+
+  /* ===== 버튼 이벤트 ===== */
+  $('#join-btn').onclick = () => {
+    const room = $('#room').value.trim();
+    if (!room) return alert("방 ID를 입력하세요");
+    enterRoom(room);
+  };
+
+  $('#send-btn').onclick = () => {
+    const msg = $('#msg').value.trim();
+    if (!msg || !currentRoom) return;
+    socket.emit("chat_message", {
+      room   : currentRoom,
+      sender : username,
+      msg    : msg
     });
+    $('#msg').value = '';
+  };
 
-    // 메시지 수신
-    socket.on("new_message", (data) => {
-      if (data.room !== currentRoom) return;
+  $('#switch-btn').onclick = () => {
+    if (currentRoom) socket.emit("leave", {room: currentRoom});
+    currentRoom = "";
+    clearChat();
+    $('#chat-ui').hidden = true;
+    $('#lobby').hidden   = false;
+    $('#room').focus();
+  };
 
-      const ts = new Date(data.timestamp).toLocaleString('ko-KR');
-      const li = document.createElement("li");
-      if (data.user === username) li.style.color = 'dodgerblue';
-      li.textContent = `[${ts}] [${data.user}] ${data.msg}`;
-      chatBox.appendChild(li);
-      chatBox.scrollTop = chatBox.scrollHeight;
-    });
-
-    // 채팅방 입장
-    $('#join-btn').onclick = () => {
-      const room = $('#room').value.trim();
-      if (!room) return alert("방 ID를 입력하세요");
-
-      if (currentRoom) socket.emit("leave", { room: currentRoom });
-
-      currentRoom = room;
-      clearChat();
-      socket.emit("join", { room });
-
-      $('#lobby').hidden   = true;
-      $('#chat-ui').hidden = false;
-      $('#room-title').textContent = `Room: ${room}`;
-      $('#msg').focus();
-    };
-
-    // 메시지 전송
-    $('#send-btn').onclick = () => {
-      const msg = $('#msg').value.trim();
-      if (!msg) return;
-      socket.emit("chat_message", { room: currentRoom, user: username, msg });
-      $('#msg').value = '';
-    };
-
-    // 채널 전환
-    $('#switch-btn').onclick = () => {
-      if (currentRoom) socket.emit("leave", { room: currentRoom });
-      currentRoom = "";
-      clearChat();
-      $('#chat-ui').hidden = true;
-      $('#lobby').hidden   = false;
-      $('#room').focus();
-    };
-
-    $('#msg').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') $('#send-btn').click();
-    });
-
-    // DM 방 생성
-    function generateDMRoom(userA, userB) {
-      const [u1, u2] = [userA, userB].sort();
-      return `dm_${u1}_${u2}`;
-    }
-  </script>
+  $('#msg').addEventListener('keydown', e => {
+    if (e.key === 'Enter') $('#send-btn').click();
+  });
+</script>
 </body>
 </html>

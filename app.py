@@ -220,10 +220,15 @@ def logout():
     response.delete_cookie("access_token")
     return response
 
+from flask import request, redirect, url_for, render_template
+import jwt
+
 @app.route("/chat")
 def chat_page():
-    username = get_current_username()
+    room = request.args.get("room", "")
     token = request.cookies.get("access_token")
+
+    # 1. JWT 토큰 검사
     if not token:
         return redirect(url_for("index"))
 
@@ -233,35 +238,97 @@ def chat_page():
         if not username:
             return redirect(url_for("index"))
     except jwt.ExpiredSignatureError:
-        return "토큰 만료", 401
+        return "❌ 토큰 만료", 401
     except jwt.InvalidTokenError:
-        return "토큰 오류", 401
+        return "❌ 유효하지 않은 토큰", 401
 
-    return render_template("chat.html", username=username)
+    # 2. DM 룸 유효성 검사 및 접근 권한 체크
+    if not room.startswith("dm_") or len(room.split("_")) != 3:
+        return "❌ 잘못된 방 이름", 400
 
+    _, id1, id2 = room.split("_")
 
-# ■ Socket.IO 이벤트
+    # 현재 접속자가 id1 또는 id2와 일치하지 않으면 거부
+    if username not in [id1, id2]:
+        return "❌ 이 채팅방에 접근할 수 없습니다", 403
+
+    # 3. 방 이름 정규화 (dm_122_123과 dm_123_122 → 동일하게 처리)
+    u1, u2 = sorted([id1, id2])
+    normalized_room = f"dm_{u1}_{u2}"
+
+    # 4. 채팅방 입장
+    return render_template("chat.html", room=normalized_room, username=username)
 @socketio.on("join")
 def on_join(data):
     room = data.get("room")
-    if not room:
+    username = get_current_username()  # JWT에서 username 꺼내는 함수
+
+    if not room or not username:
+        return  # 🚫 잘못된 요청 차단
+
+    # ✅ DM 룸 구조인지 확인 (예: dm_122_123)
+    if not room.startswith("dm_") or len(room.split("_")) != 3:
+        print(f"❌ 잘못된 룸 이름 요청: {room}")
         return
-    join_room(room)
-    print(f"🚪 {request.sid} joined {room}")
-    for msg in model.fetch_recent(room):
+
+    _, id1, id2 = room.split("_")
+
+    # ✅ 현재 유저가 대화 참여자인지 검증
+    if username not in [id1, id2]:
+        print(f"⛔️ 접근 불가: {username} tried to join {room}")
+        return
+
+    # ✅ 룸 이름 정규화 (122_123 → dm_122_123 고정)
+    u1, u2 = sorted([id1, id2])
+    normalized_room = f"dm_{u1}_{u2}"
+
+    # ✅ 소켓 입장 처리
+    join_room(normalized_room)
+    print(f"🚪 {request.sid} ({username}) joined {normalized_room}")
+
+    # ✅ 최근 메시지 가져와서 1:1 전송
+    recent_messages = model.fetch_recent(normalized_room)
+    for msg in recent_messages:
         emit("new_message", msg, room=request.sid)
 
 @socketio.on("chat_message")
 def on_chat(data):
-    room, msg = data.get("room"), data.get("msg")
+    room = data.get("room")
+    msg = data.get("msg")
+
     if not room or not msg:
         return
-    user = online.get(request.sid, "Anon")
-    payload = model.build_payload(room, user, msg)
-    emit("new_message", payload, room=room)
+
+    sender = online.get(request.sid, "Anon")
+
+    # ✅ DM 룸 유효성 검사
+    if not room.startswith("dm_") or len(room.split("_")) != 3:
+        print(f"❌ 잘못된 DM 룸: {room}")
+        return
+
+    _, id1, id2 = room.split("_")
+    u1, u2 = sorted([id1, id2])
+    normalized_room = f"dm_{u1}_{u2}"
+
+    # ✅ sender가 대화 참여자인지 확인
+    if sender not in [id1, id2]:
+        print(f"⛔️ 접근 불가: {sender} tried to chat in {room}")
+        return
+
+    # ✅ receiver 자동 결정
+    receiver = u2 if sender == u1 else u1
+
+    # ✅ payload 구성
+    payload = model.build_payload(normalized_room, sender, msg)
+    payload["receiver"] = receiver  # 리시버 추가
+
+    # ✅ 메시지 전달
+    emit("new_message", payload, room=normalized_room)
+
+    # ✅ 저장 및 Kafka 발행
     model.save_message(payload)
     model.publish_kafka(payload)
-
+    
 @socketio.on("leave")
 def on_leave(data):
     room = data.get("room")
