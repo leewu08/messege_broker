@@ -23,7 +23,29 @@ online = {}  # { sid: username }
 
 @socketio.on("connect")
 def handle_connect():
-    username = request.args.get("user", f"Anon_{request.sid[:5]}")
+    # ✅ 1. JWT부터 본다 (쿠키에서 access_token 꺼냄)
+    token = request.cookies.get("access_token")  
+    if not token:
+        print("❌ JWT 없음 → 연결 차단")
+        disconnect()
+        return
+
+    # ✅ 2. JWT 디코딩 시도
+    try:
+        data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        username = data.get("username")
+        if not username:
+            raise jwt.InvalidTokenError("No username in JWT")
+    except jwt.ExpiredSignatureError:
+        print("❌ JWT 만료 → 연결 차단")
+        disconnect()
+        return
+    except jwt.InvalidTokenError:
+        print("❌ JWT 유효하지 않음 → 연결 차단")
+        disconnect()
+        return
+
+    # ✅ 3. 정상 인증된 유저만 등록
     online[request.sid] = username
     emit("user_list", list(online.values()), broadcast=True)
     print(f"✅ {username} 온라인 ({len(online)}명)")

@@ -18,7 +18,6 @@ from kafka import KafkaConsumer, KafkaProducer
 from pymongo import MongoClient
 from bson import ObjectId  # 상단에 import 필요
 from typing import Optional
-f
 
 
 
