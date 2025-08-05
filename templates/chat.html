@@ -1,10 +1,4 @@
-<div id="user-list" style="border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem;">
-  <h3>🟢 현재 접속자 목록</h3>
-  <ul id="user-list-ul">
-    <!-- JS로 동적으로 채워짐 -->
-    <li>접속자 정보를 불러오는 중...</li>
-  </ul>
-</div>
+{% include 'partials/_user_list.html' %}
 <style>
   
   body { font-family: sans-serif; margin: 2rem; max-width: 640px }
@@ -33,8 +27,6 @@
     <button id="switch-btn" title="다른 채널로 이동">🔄</button>
   </div>
 </div>
-
-<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <script>
