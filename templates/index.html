@@ -36,6 +36,7 @@
   {% if username %}
     <p><strong>{{ username }}</strong>님 반갑습니다!</p>
     <button onclick="location.href='{{ url_for('chat_page') }}'">💬 채팅하러 가기</button>
+    <button onclick="location.href='{{ url_for('post') }}'">📄 게시판 가기</button>
     <p><a href="{{ url_for('logout') }}">🔓 로그아웃</a></p>
 
     <!-- 🟢 실시간 접속자 목록 -->

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>✏️ 글 수정</title>
+</head>
+<body>
+  <h1>✏️ 게시글 수정</h1>
+
+  <form method="POST" enctype="multipart/form-data">
+    <input type="text" name="title" value="{{ post.title }}" required><br><br>
+    <textarea name="content" rows="6" cols="50" required>{{ post.content }}</textarea><br><br>
+    <input type="file" name="file" accept=".jpg,.png,.gif"><br><br>
+
+    {% if post.filename %}
+      <p>
+        <strong>기존 첨부파일:</strong><br>
+        <img src="{{ url_for('static', filename='uploads/' + post.filename) }}" width="200">
+      </p>
+    {% endif %}
+
+    <button type="submit">수정 완료</button>
+  </form>
+
+  <p><a href="{{ url_for('post') }}">← 게시판으로 돌아가기</a></p>
+</body>
+</html>

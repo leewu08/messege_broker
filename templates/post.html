@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>📄 게시판</title>
+</head>
+<body>
+  <h1>📄 게시글 목록</h1>
+
+  <a href="{{ url_for('add_post') }}">
+    <button>✍️ 새 글 쓰기</button>
+  </a>
+
+  <ul>
+    {% for post in posts %}
+      <li>
+        {% set pid = post.get('_id') %}
+        {% if pid %}
+          <a href="{{ url_for('view_post', post_id=pid) }}">
+            <strong>{{ post.get('title', '[제목 없음]') }}</strong> - {{ post.get('author', '익명') }}
+          </a>
+          <a href="{{ url_for('edit_post', post_id=pid) }}">✏️ 수정</a>
+          <a href="{{ url_for('delete_post', post_id=pid) }}">🗑️ 삭제</a>
+        {% else %}
+          <strong>{{ post.get('title', '[제목 없음]') }}</strong> - {{ post.get('author', '익명') }}
+        {% endif %}
+      </li>
+    {% else %}
+      <li>🕳️ 게시글이 없습니다.</li>
+    {% endfor %}
+  </ul>
+</body>
+</html>

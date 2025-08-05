@@ -4,15 +4,17 @@ app.py  ── Flask + Socket.IO + JWT 로그인 + 채팅 + Kafka + 온라인 �
 import os, json, threading, jwt
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, make_response
+from flask import Flask, render_template, request, redirect, url_for, jsonify, make_response
 from flask_socketio import SocketIO, join_room, leave_room, emit
 from flask_bcrypt import Bcrypt
+from werkzeug.utils import secure_filename
 
 import model  # user CRUD / Kafka consumer·producer / helper 함수
 
 # ■ 기본 설정
 SECRET_KEY = os.getenv("SECRET_KEY", "super_secret")
 app = Flask(__name__)
+app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'static', 'uploads')
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 bcrypt = Bcrypt(app)
 
@@ -50,6 +52,79 @@ def token_required(f):
         return f(*args, **kwargs)
     return decorated
 
+
+########################
+#포스트기능 CRUD기능구현예정 db는 몽고db내 post table
+########################
+# ✅ Create Post
+# ✅ 게시글 목록
+@app.route('/post')
+def post():
+    posts = model.get_all_posts()
+    if posts is None:
+        posts = []
+    return render_template('post.html', posts=posts)
+
+
+
+# ✅ 게시글 내용 보기
+@app.route('/post/<string:post_id>')  # MongoDB는 ObjectId 문자열
+def view_post(post_id):
+    post = model.get_post(post_id)
+    if not post:
+        return "게시글이 존재하지 않습니다.", 404
+    return render_template('view.html', post=post)
+
+# ✅ 게시글 작성
+@app.route('/post/add', methods=['GET', 'POST'])
+def add_post():
+    if request.method == 'POST':
+        title = request.form['title']
+        content = request.form['content']
+        author = request.form.get('author', '익명')
+
+        file = request.files.get('file')
+        filename = None
+        if file and file.filename:
+            filename = secure_filename(file.filename)
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+
+        model.create_post(title, content, author, filename)
+        return redirect(url_for('post'))
+    
+    return render_template('add.html')
+
+# ✅ 게시글 수정
+@app.route('/post/edit/<string:post_id>', methods=['GET', 'POST'])
+def edit_post(post_id):
+    post = model.get_post(post_id)
+    if not post:
+        return "게시글이 존재하지 않습니다.", 404
+
+    if request.method == 'POST':
+        title = request.form['title']
+        content = request.form['content']
+
+        file = request.files.get('file')
+        filename = None
+        if file and file.filename:
+            filename = secure_filename(file.filename)
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+
+        model.update_post(post_id, title, content, filename)
+        return redirect(url_for('post'))
+
+    return render_template('edit.html', post=post)
+
+# ✅ 게시글 삭제
+@app.route('/post/delete/<string:post_id>')
+def delete_post(post_id):
+    success = model.delete_post(post_id)
+    if success:
+        return redirect(url_for('post'))
+    return "게시글 삭제 실패", 400
+
+###############################################
 # ■ Flask 라우티드
 @app.route("/")
 def index():

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ post.title }}</title>
+</head>
+<body>
+  <h1>{{ post.title }}</h1>
+  <p><strong>작성자:</strong> {{ post.author }}</p>
+  <p>{{ post.content }}</p>
+
+  {% if post.filename %}
+    <p>
+      <strong>첨부파일:</strong><br>
+      <img src="{{ url_for('static', filename='uploads/' + post.filename) }}" width="300">
+    </p>
+  {% endif %}
+
+  <p>
+    <a href="{{ url_for('edit_post', post_id=post._id) }}">✏️ 수정</a> |
+    <a href="{{ url_for('delete_post', post_id=post._id) }}">🗑️ 삭제</a> |
+    <a href="{{ url_for('post') }}">← 게시판으로</a>
+  </p>
+</body>
+</html>

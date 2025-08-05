@@ -16,6 +16,8 @@ from typing import Any, Dict, List
 
 from kafka import KafkaConsumer, KafkaProducer
 from pymongo import MongoClient
+from bson import ObjectId  # 상단에 import 필요
+from typing import Optional
 
 
 
@@ -31,7 +33,7 @@ mongo       = MongoClient(MONGO_URI)
 db          = mongo.chat_db
 users_col   = db.users       # 회원 정보 저장
 msgs_col    = db.messages    # 채팅 로그 저장
-
+posts_col  = db.post        # ✅ ✅ 게시글 컬렉션 ← 이 줄이 빠진 거야
 # ─────────────────────── Kafka ─────────────────────────
 producer = KafkaProducer(
     bootstrap_servers=KAFKA_BOOTSTRAP,
@@ -44,6 +46,9 @@ consumer = KafkaConsumer(
     auto_offset_reset="latest",
     value_deserializer=lambda m: m.decode("utf-8"),
 )
+
+
+
 
 # ─────────────────────── 유저 CRUD ──────────────────────
 
@@ -100,3 +105,63 @@ def fetch_recent(room: str, limit: int = 10) -> List[Dict[str, Any]]:
     for d in docs:
         d.pop("_id", None)
     return docs
+
+# ─────────────────────── 게시글 CRUD ──────────────────────
+def create_post(title: str, content: str, author: str = "익명", filename: Optional[str] = None) -> str:
+    """게시글 생성"""
+    post = {
+        "title": title,
+        "content": content,
+        "author": author,
+        "created_at": _now_kst()
+    }
+    if filename:
+        post["filename"] = filename
+
+    result = posts_col.insert_one(post)
+    return str(result.inserted_id)
+
+def get_post(post_id: str) -> Optional[Dict[str, Any]]:
+    """게시글 하나 조회"""
+    try:
+        post = posts_col.find_one({"_id": ObjectId(post_id)})
+    except Exception:
+        return None
+
+    if post:
+        post["_id"] = str(post["_id"])
+    return post
+
+def get_all_posts(limit: int = 20) -> List[Dict[str, Any]]:
+    """전체 게시글 조회 (최신순)"""
+    cursor = posts_col.find().sort("created_at", -1).limit(limit)
+    return [
+        {**doc, "_id": str(doc["_id"])}
+        for doc in cursor
+    ]
+
+def update_post(post_id: str, title: str, content: str, filename: Optional[str] = None) -> bool:
+    """게시글 수정"""
+    update_fields = {
+        "title": title,
+        "content": content
+    }
+    if filename:
+        update_fields["filename"] = filename
+
+    try:
+        result = posts_col.update_one(
+            {"_id": ObjectId(post_id)},
+            {"$set": update_fields}
+        )
+        return result.matched_count == 1
+    except Exception:
+        return False
+
+def delete_post(post_id: str) -> bool:
+    """게시글 삭제"""
+    try:
+        result = posts_col.delete_one({"_id": ObjectId(post_id)})
+        return result.deleted_count == 1
+    except Exception:
+        return False
