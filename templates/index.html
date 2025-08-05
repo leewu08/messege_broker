@@ -1,13 +1,148 @@
-{# templates/index.html #}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>Kafka Chat – 홈</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 600px;
+      margin: 2rem auto;
+      line-height: 1.6;
+    }
+    button {
+      margin: 0.25rem 0.5rem 0.25rem 0;
+      padding: 0.5rem 1rem;
+    }
+    .user-dropdown-content {
+      display: none;
+      position: relative;
+      background: #f4f4f4;
+      border: 1px solid #ccc;
+      padding: 0.5rem;
+      margin-top: 0.25rem;
+    }
+    .user-dropdown-content button {
+      display: block;
+      margin-top: 0.25rem;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
 
-
-{% block content %}
   <h2>Kafka Chat</h2>
-  <p>로그인 또는 회원가입을 선택하세요</p>
 
-  <button onclick="location.href='{{ url_for('login_page') }}'">🔐 로그인</button>
-  <button onclick="location.href='{{ url_for('register_page') }}'">📝 회원가입</button>
+  {% if username %}
+    <p><strong>{{ username }}</strong>님 반갑습니다!</p>
+    <button onclick="location.href='{{ url_for('chat_page') }}'">💬 채팅하러 가기</button>
+    <p><a href="{{ url_for('logout') }}">🔓 로그아웃</a></p>
 
-  <hr>
-  <form
-{% endblock %}
+    <!-- 🟢 실시간 접속자 목록 -->
+    <div id="user-list" style="border: 1px solid #ccc; padding: 1rem; margin-top: 2rem;">
+      <h3>🟢 현재 접속자 목록</h3>
+      <ul id="user-list-ul">
+        <li>접속자 정보를 불러오는 중...</li>
+      </ul>
+    </div>
+
+    <!-- username을 JS에 넘겨줌 -->
+    <script>
+      window.username = "{{ username }}";
+    </script>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const username = window.username || `Anon-${Math.random().toString(36).slice(2, 6)}`;
+        const socket = io(`/?user=${encodeURIComponent(username)}`);
+
+        socket.on("user_list", (users) => {
+          const userList = document.getElementById("user-list-ul");
+          if (!userList) return;
+
+          userList.innerHTML = "";
+          const uniqueUsers = [...new Set(users)];
+
+          uniqueUsers.forEach((user) => {
+            const li = document.createElement("li");
+            li.classList.add("user-dropdown");
+
+            const span = document.createElement("span");
+            span.textContent = user;
+            span.style.cursor = "pointer";
+            span.style.fontWeight = "bold";
+
+            li.appendChild(span);
+
+            if (user !== username) {
+              const menu = document.createElement("div");
+              menu.classList.add("user-dropdown-content");
+              menu.style.display = "none";
+
+              const btnDetail = document.createElement("button");
+              btnDetail.textContent = "상세정보";
+              btnDetail.onclick = () => alert(`🔍 ${user} 상세정보 보기`);
+
+              const btnPosts = document.createElement("button");
+              btnPosts.textContent = "작성글 보기";
+              btnPosts.onclick = () => alert(`📝 ${user}의 작성글 보기`);
+
+              const btnDM = document.createElement("button");
+              btnDM.textContent = "1:1 대화하기";
+              btnDM.onclick = () => {
+                const dmRoom = generateDMRoom(username, user);
+                joinRoom(dmRoom);
+              };
+
+              menu.append(btnDetail, btnPosts, btnDM);
+              li.appendChild(menu);
+
+              span.addEventListener("click", (e) => {
+                const all = document.querySelectorAll(".user-dropdown-content");
+                all.forEach(m => { if (m !== menu) m.style.display = "none"; });
+                menu.style.display = menu.style.display === "block" ? "none" : "block";
+                e.stopPropagation();
+              });
+            }
+
+            userList.appendChild(li);
+          });
+        });
+
+        // 바깥 클릭 시 드롭다운 닫기
+        document.addEventListener("click", () => {
+          const all = document.querySelectorAll(".user-dropdown-content");
+          all.forEach(menu => {
+            menu.style.display = "none";
+          });
+        });
+      });
+
+      function generateDMRoom(userA, userB) {
+        const [u1, u2] = [userA, userB].sort();
+        return `dm_${u1}_${u2}`;
+      }
+
+      function joinRoom(roomName) {
+        window.location.href = `/chat?room=${roomName}`;
+      }
+    </script>
+
+  {% else %}
+    <!-- 로그인하지 않은 상태 -->
+    <p>로그인이 필요한 서비스입니다.</p>
+
+    <form method="POST" action="{{ url_for('login_page') }}">
+      <input type="text" name="username" placeholder="아이디" required><br>
+      <input type="password" name="password" placeholder="비밀번호" required><br>
+      <button type="submit">🔐 로그인</button>
+    </form>
+
+    <p>아직 회원이 아니신가요?
+      <a href="{{ url_for('register_page') }}">회원가입</a>
+    </p>
+  {% endif %}
+
+</body>
+</html>

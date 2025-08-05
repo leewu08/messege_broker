@@ -1,10 +1,30 @@
-{% extends "base.html" %}
-
-{% block title %}Kafka Chat – 회원가입{% endblock %}
-
-{% block content %}
-
-  <h2>📝 회원가입</h2>
+   <style>
+    body {
+      font-family: sans-serif;
+      max-width: 600px;
+      margin: 2rem auto;
+      line-height: 1.6;
+    }
+    button {
+      margin: 0.25rem 0.5rem 0.25rem 0;
+      padding: 0.5rem 1rem;
+    }
+    .user-dropdown-content {
+      display: none;
+      position: relative;
+      background: #f4f4f4;
+      border: 1px solid #ccc;
+      padding: 0.5rem;
+      margin-top: 0.25rem;
+    }
+    .user-dropdown-content button {
+      display: block;
+      margin-top: 0.25rem;
+      width: 100%;
+    }
+  </style>
+ <body>
+   <h2>📝 회원가입</h2>
 
   <form method="POST" action="{{ url_for('register_page') }}">
     <input type="text"     name="username" placeholder="아이디"   required><br>
@@ -13,7 +33,7 @@
   </form>
 
   <p>이미 가입하셨나요?
-     <a href="{{ url_for('login_page') }}">🔐 로그인</a>
+     <a href="{{ url_for('index') }}">🔐 로그인</a>
   </p>
 
-{% endblock %}
+ </body>

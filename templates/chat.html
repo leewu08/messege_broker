@@ -1,136 +1,149 @@
-{% include 'partials/_user_list.html' %}
-<style>
-  
-  body { font-family: sans-serif; margin: 2rem; max-width: 640px }
-  #chat { list-style: none; padding: 0; margin: 1rem 0; height: 50vh;
-          overflow-y: auto; border: 1px solid #ccc; border-radius: 4px }
-  #chat li { margin: .25rem 0; padding: .25rem .5rem; word-break: break-all }
-  #controls { display: flex; gap: .5rem }
-  #controls input { flex: 1 1 auto }
-</style>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>Kafka Chat – 채팅</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem auto; max-width: 640px; }
+    #chat { list-style: none; padding: 0; margin: 1rem 0; height: 50vh;
+            overflow-y: auto; border: 1px solid #ccc; border-radius: 4px; }
+    #chat li { margin: .25rem 0; padding: .25rem .5rem; word-break: break-word; }
+    #controls { display: flex; gap: .5rem; margin-top: 0.5rem; }
+    #controls input { flex: 1 1 auto; }
+    #user-list { border: 1px solid #ccc; padding: 1rem; margin-top: 2rem; }
+  </style>
+</head>
+<body>
 
-<!-- 🚪 로비 -->
-<div id="lobby">
-  <input id="room" placeholder="방 ID (예: roomA)">
-  <input id="user" placeholder="닉네임 (옵션)">
-  <button id="join-btn">Join</button>
-</div>
+  <h2>Kafka Chat</h2>
 
-<!-- 💬 채팅 -->
-<div id="chat-ui" hidden>
-  <h3 id="room-title"></h3>
-  <ul id="chat"></ul>
+  {% if username %}
+    <p><strong>{{ username }}</strong>님 환영합니다!</p>
+    <p><a href="{{ url_for('logout') }}">🔓 로그아웃</a></p>
+  {% else %}
+    <p>❌ 사용자 정보가 없습니다.</p>
+  {% endif %}
 
-  <div id="controls">
-    <input id="msg" placeholder="메시지 입력">
-    <button id="send-btn">Send</button>
-    <button id="switch-btn" title="다른 채널로 이동">🔄</button>
+  <!-- 🚪 로비 -->
+  <div id="lobby">
+    <input id="room" placeholder="방 ID (예: roomA)">
+    <input id="user" style="display:none;" disabled>
+    <button id="join-btn">Join</button>
   </div>
-</div>
 
-<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-<script>
-  const sessionUsername = "{{ username | default('') }}";
+  <!-- 💬 채팅 -->
+  <div id="chat-ui" hidden>
+    <h3 id="room-title"></h3>
+    <ul id="chat"></ul>
 
-  let currentRoom = "";
-  let currentUser = "";
+    <div id="controls">
+      <input id="msg" placeholder="메시지 입력">
+      <button id="send-btn">Send</button>
+      <button id="switch-btn" title="다른 채널로 이동">🔄</button>
+    </div>
+  </div>
 
-  const $ = s => document.querySelector(s);
-  const chatBox = $('#chat');
+  <!-- 🟢 실시간 접속자 목록 -->
+  <div id="user-list">
+    <h3>🟢 현재 접속자 목록</h3>
+    <ul id="user-list-ul">
+      <li>접속자 정보를 불러오는 중...</li>
+    </ul>
+  </div>
 
-  const appendMessage = txt => {
-    const li = document.createElement('li');
-    li.textContent = txt;
-    chatBox.append(li);
-    chatBox.scrollTop = chatBox.scrollHeight;
-  };
-  const clearChat = () => (chatBox.innerHTML = '');
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <script>
+    const currentUser = "{{ username }}";
+    let currentRoom = "";
 
-  // ✅ 유저명 설정
-  const rawUsername = sessionUsername || `Anon-${Math.random().toString(36).slice(2, 6)}`;
-  currentUser = rawUsername;
+    const $ = s => document.querySelector(s);
+    const chatBox = $('#chat');
 
-  // ✅ socket 연결 시 user명 전달
-  const socket = io(`/?user=${encodeURIComponent(rawUsername)}`);
+    const appendMessage = (txt) => {
+      const li = document.createElement('li');
+      li.textContent = txt;
+      chatBox.append(li);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    };
 
-// ✅ 접속자 목록 업데이트 받기
-socket.on("user_list", (users) => {
-  const userList = document.getElementById("user-list-ul");
-  if (!userList) return;
+    const clearChat = () => (chatBox.innerHTML = '');
 
-  userList.innerHTML = "";
+    const getAccessToken = () => {
+      const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
+      return match ? match[1] : null;
+    };
 
-  // ✅ Set으로 중복 제거
-  const uniqueUsers = [...new Set(users)];
+    const socket = io("/", {
+      extraHeaders: {
+        Authorization: "Bearer " + getAccessToken()
+      }
+    });
 
-  uniqueUsers.forEach((user) => {
-    const li = document.createElement("li");
-    li.textContent = user;
-    userList.appendChild(li);
-  });
-});
-  socket.on('connect', () => console.log('✅ 서버와 연결됨'));
+    socket.on("connect", () => {
+      console.log("✅ 서버와 연결됨");
+    });
 
-  socket.on('new_message', data => {
-    if (data.room !== currentRoom) return;
-    const ts = new Date(data.timestamp).toLocaleString('ko-KR');
-    const li = document.createElement('li');
-    if (data.user === currentUser) li.style.color = 'dodgerblue';
-    li.textContent = `[${ts}] [${data.user}] ${data.msg}`;
-    chatBox.append(li);
-    chatBox.scrollTop = chatBox.scrollHeight;
-  });
+    socket.on("user_list", (users) => {
+      const userList = document.getElementById("user-list-ul");
+      if (!userList) return;
+      userList.innerHTML = "";
+      const uniqueUsers = [...new Set(users)];
+      uniqueUsers.forEach((user) => {
+        const li = document.createElement("li");
+        li.textContent = user;
+        userList.appendChild(li);
+      });
+    });
 
-  $('#join-btn').onclick   = joinRoom;
-  $('#send-btn').onclick   = sendMessage;
-  $('#switch-btn').onclick = switchRoom;
-  $('#msg').addEventListener('keydown', e => {
-    if (e.key === 'Enter') sendMessage();
-  });
+    socket.on("new_message", (data) => {
+      if (data.room !== currentRoom) return;
+      const ts = new Date(data.timestamp).toLocaleString('ko-KR');
+      const li = document.createElement("li");
+      if (data.user === currentUser) li.style.color = 'dodgerblue';
+      li.textContent = `[${ts}] [${data.user}] ${data.msg}`;
+      chatBox.append(li);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    });
 
-  window.addEventListener('DOMContentLoaded', () => {
-    if (sessionUsername) {
-      $('#user').style.display = 'none';
-      $('#user').value = '';
+    $('#join-btn').onclick = joinRoom;
+    $('#send-btn').onclick = sendMessage;
+    $('#switch-btn').onclick = switchRoom;
+
+    $('#msg').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') sendMessage();
+    });
+
+    function joinRoom() {
+      const room = $('#room').value.trim();
+      if (!room) return alert("방 ID를 입력하세요");
+
+      if (currentRoom) socket.emit("leave", { room: currentRoom });
+
+      currentRoom = room;
+      clearChat();
+      socket.emit("join", { room });
+
+      $('#lobby').hidden   = true;
+      $('#chat-ui').hidden = false;
+      $('#room-title').textContent = `Room: ${room}`;
+      $('#msg').focus();
     }
-  });
 
-  function joinRoom() {
-    const room = $('#room').value.trim();
-    if (!room) return alert('방 ID를 입력하세요');
-
-    if (!currentUser) {
-      const nick = $('#user').value.trim();
-      if (!nick) return alert('닉네임을 입력하세요');
-      currentUser = nick;
+    function sendMessage() {
+      const msg = $('#msg').value.trim();
+      if (!msg) return;
+      socket.emit("chat_message", { room: currentRoom, user: currentUser, msg: msg });
+      $('#msg').value = '';
     }
 
-    if (currentRoom) socket.emit('leave', { room: currentRoom });
-
-    currentRoom = room;
-    clearChat();
-
-    socket.emit('join', { room });
-
-    $('#lobby').hidden   = true;
-    $('#chat-ui').hidden = false;
-    $('#room-title').textContent = `Room: ${room}`;
-    $('#msg').focus();
-  }
-
-  function sendMessage() {
-    const txt = $('#msg').value.trim();
-    if (!txt) return;
-    socket.emit('chat_message', { room: currentRoom, user: currentUser, msg: txt });
-    $('#msg').value = '';
-  }
-
-  function switchRoom() {
-    if (currentRoom) socket.emit('leave', { room: currentRoom });
-    currentRoom = "";
-    clearChat();
-    $('#chat-ui').hidden = true;
-    $('#lobby').hidden   = false;
-    $('#room').focus();
-  }
-</script>
+    function switchRoom() {
+      if (currentRoom) socket.emit("leave", { room: currentRoom });
+      currentRoom = "";
+      clearChat();
+      $('#chat-ui').hidden = true;
+      $('#lobby').hidden   = false;
+      $('#room').focus();
+    }
+  </script>
+</body>
+</html>

@@ -1,9 +1,0 @@
-{% if username %}
-  <p>{{ username }}님 반갑습니다!
-     <a href="{{ url_for('logout') }}">[로그아웃]</a>
-  </p>
-{% else %}
-  <p>익명 사용자입니다.
-     <a href="{{ url_for('login_page') }}">[로그인]</a>
-  </p>
-{% endif %}

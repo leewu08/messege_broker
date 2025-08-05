@@ -77,23 +77,24 @@ def register_page():
         return redirect(url_for("login_page"))
     return render_template("register.html")
 
-@app.route("/login", methods=["GET", "POST"])
+@app.route("/login", methods=["POST"])
 def login_page():
-    if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
-        user = model.get_user(username)
-        if not user or not bcrypt.check_password_hash(user["password"], password):
-            return "로그인 실패"
-        payload = {
-            "username": username,
-            "exp": datetime.utcnow() + timedelta(hours=2)
-        }
-        token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
-        response = make_response(redirect(url_for("chat_page")))
-        response.set_cookie("access_token", token, httponly=True, samesite="Lax")
-        return response
-    return render_template("login.html")
+    username = request.form["username"]
+    password = request.form["password"]
+    user = model.get_user(username)
+
+    if not user or not bcrypt.check_password_hash(user["password"], password):
+        return redirect(url_for("index", error="invalid"))  # 실패 시 index로
+
+    payload = {
+        "username": username,
+        "exp": datetime.utcnow() + timedelta(hours=2)
+    }
+    token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+
+    response = make_response(redirect(url_for("index")))  # ✅ index로 리다이렉트
+    response.set_cookie("access_token", token, httponly=True, samesite="Lax")
+    return response
 
 @app.route("/logout")
 def logout():
@@ -104,18 +105,21 @@ def logout():
 @app.route("/chat")
 def chat_page():
     token = request.cookies.get("access_token")
-    username = request.args.get("nickname")
-    if token:
-        try:
-            data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-            username = data["username"]
-        except jwt.ExpiredSignatureError:
-            return "토큰 만료", 401
-        except jwt.InvalidTokenError:
-            return "토큰 오류", 401
-    if not username:
-        return redirect(url_for("login_page"))
+    if not token:
+        return redirect(url_for("index"))
+
+    try:
+        data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        username = data.get("username")
+        if not username:
+            return redirect(url_for("index"))
+    except jwt.ExpiredSignatureError:
+        return "토큰 만료", 401
+    except jwt.InvalidTokenError:
+        return "토큰 오류", 401
+
     return render_template("chat.html", username=username)
+
 
 # ■ Socket.IO 이벤트
 @socketio.on("join")
