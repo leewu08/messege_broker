@@ -1,18 +1,10 @@
-{# templates/register.html #}
 {% extends "base.html" %}
 
-{% block title %}회원가입{% endblock %}
-
-{# ▼ 접속자 목록이 필요하면 주석 해제
-{% block presence %}
-  {% include "partials/_user_list.html" %}
-{% endblock %}
-#}
+{% block title %}Kafka Chat – 회원가입{% endblock %}
 
 {% block content %}
-  {% include "partials/header.html" %}
 
-  <h2>회원가입</h2>
+  <h2>📝 회원가입</h2>
 
   <form method="POST" action="{{ url_for('register_page') }}">
     <input type="text"     name="username" placeholder="아이디"   required><br>
@@ -21,6 +13,7 @@
   </form>
 
   <p>이미 가입하셨나요?
-     <a href="{{ url_for('login_page') }}">로그인</a>
+     <a href="{{ url_for('login_page') }}">🔐 로그인</a>
   </p>
+
 {% endblock %}

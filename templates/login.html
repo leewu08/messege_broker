@@ -1,18 +1,10 @@
-{# templates/login.html #}
 {% extends "base.html" %}
 
-{% block title %}로그인{% endblock %}
-
-{# ▼ 접속자 목록이 필요하면 주석 해제
-{% block presence %}
-  {% include "partials/_user_list.html" %}
-{% endblock %}
-#}
+{% block title %}Kafka Chat – 로그인{% endblock %}
 
 {% block content %}
-  {% include "partials/header.html" %}
 
-  <h2>로그인</h2>
+  <h2>🔐 로그인</h2>
 
   <form method="POST" action="{{ url_for('login_page') }}">
     <input type="text"     name="username" placeholder="아이디"   required><br>
@@ -26,9 +18,5 @@
 
   <hr>
 
-  <p>비로그인으로 사용하시겠어요?</p>
-  <form method="GET" action="{{ url_for('chat_page') }}">
-    <input type="text" name="nickname" placeholder="닉네임 (선택)">
-    <button type="submit">입장하기</button>
-  </form>
+
 {% endblock %}

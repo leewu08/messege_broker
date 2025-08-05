@@ -1,5 +1,5 @@
-{% if session.username %}
-  <p>{{ session.username }}님 반갑습니다! 
+{% if username %}
+  <p>{{ username }}님 반갑습니다!
      <a href="{{ url_for('logout') }}">[로그아웃]</a>
   </p>
 {% else %}

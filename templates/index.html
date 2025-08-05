@@ -1,26 +1,17 @@
 {# templates/index.html #}
 {% extends "base.html" %}
 
-{% block title %}Kafka Chat – 메인{% endblock %}
-
-{# ▼ 접속자 목록이 꼭 보여야 한다면 주석 해제
-{% block presence %}
-  {% include "partials/_user_list.html" %}
+{% block title %}
+Kafka Chat – 메인
 {% endblock %}
-#}
 
 {% block content %}
-  {% include "partials/header.html" %}
-
   <h2>Kafka Chat</h2>
   <p>로그인 또는 회원가입을 선택하세요</p>
 
-  <button onclick="location.href='{{ url_for('login_page') }}'">로그인</button>
-  <button onclick="location.href='{{ url_for('register_page') }}'">회원가입</button>
+  <button onclick="location.href='{{ url_for('login_page') }}'">🔐 로그인</button>
+  <button onclick="location.href='{{ url_for('register_page') }}'">📝 회원가입</button>
 
   <hr>
-  <form method="GET" action="{{ url_for('chat_page') }}">
-    <input type="text" name="nickname" placeholder="닉네임 (선택)">
-    <button type="submit">비로그인 입장</button>
-  </form>
+  <form
 {% endblock %}

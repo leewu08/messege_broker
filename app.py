@@ -1,19 +1,22 @@
 """
-app.py  ── Flask + Socket.IO + 로그인/채팅 + Kafka + 온라인 사용자 목록
+app.py  ── Flask + Socket.IO + JWT 로그인 + 채팅 + Kafka + 온라인 사용자 목록
 """
-import os, json, threading
-from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, session
+import os, json, threading, jwt
+from datetime import datetime, timedelta
+from functools import wraps
+from flask import Flask, render_template, request, redirect, url_for, make_response
 from flask_socketio import SocketIO, join_room, leave_room, emit
 from flask_bcrypt import Bcrypt
 
 import model           # ← user CRUD / Kafka consumer·producer / helper 함수
 
 # ─────────────────────── 기본 설정 ───────────────────────
+SECRET_KEY = os.getenv("SECRET_KEY", "super_secret")
+
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY", "super_secret")
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 bcrypt   = Bcrypt(app)
+
 
 # ─────────────────────── 온라인 사용자 ─────────────────────
 online = {}            # { sid: username }
@@ -35,11 +38,39 @@ def handle_disconnect():
     emit("user_list", list(online.values()), broadcast=True)
     print(f"❌ {username} 오프라인 ({len(online)}명)")
 
+# ─────────────────────── JWT 인증 데코레이터 ──────────────────────
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.cookies.get("access_token")
+        if not token:
+            return redirect(url_for("login_page"))
+
+        try:
+            data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            request.username = data["username"]
+        except jwt.ExpiredSignatureError:
+            return "토큰 만료", 401
+        except jwt.InvalidTokenError:
+            return "토큰 오류", 401
+
+        return f(*args, **kwargs)
+    return decorated
+
 # ─────────────────────── Flask 라우팅 ──────────────────────
 @app.route("/")
 def index():
-    return render_template("index.html")
-
+    token = request.cookies.get("access_token")
+    username = None
+    if token:
+        try:
+            decoded = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            username = decoded.get("username")
+        except jwt.ExpiredSignatureError:
+            pass
+        except jwt.InvalidTokenError:
+            pass
+    return render_template("index.html", username=username) 
 # ---------- 회원가입 ----------
 @app.route("/register", methods=["GET", "POST"])
 def register_page():
@@ -66,22 +97,44 @@ def login_page():
         if not user or not bcrypt.check_password_hash(user["password"], password):
             return "로그인 실패"
 
-        session["username"] = username
-        return redirect(url_for("chat_page"))
+        payload = {
+            "username": username,
+            "exp": datetime.utcnow() + timedelta(hours=2)
+        }
+        token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+
+        response = make_response(redirect(url_for("chat_page")))
+        response.set_cookie("access_token", token, httponly=True, samesite="Lax")
+        return response
+
     return render_template("login.html")
 
 # ---------- 로그아웃 ----------
 @app.route("/logout")
 def logout():
-    session.clear()
-    return redirect(url_for("index"))
+    response = make_response(redirect(url_for("index")))
+    response.delete_cookie("access_token")
+    return response
 
 # ---------- 채팅 ----------
 @app.route("/chat")
 def chat_page():
-    # 템플릿에서 JS 소켓 연결할 때  `io('/?user={{ username }}')` 로 쿼리스트링 전달
-    return render_template("chat.html", username=session.get("username", ""))
+    token = request.cookies.get("access_token")
+    username = request.args.get("nickname")  # 비로그인 유저의 닉네임 입력값
 
+    if token:
+        try:
+            data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            username = data["username"]  # 로그인 유저는 토큰 우선
+        except jwt.ExpiredSignatureError:
+            return "토큰 만료", 401
+        except jwt.InvalidTokenError:
+            return "토큰 오류", 401
+
+    if not username:
+        return redirect(url_for("login_page"))
+
+    return render_template("chat.html", username=username)
 # ─────────────────── Socket 이벤트 ────────────────────
 @socketio.on("join")
 def on_join(data):
@@ -91,7 +144,6 @@ def on_join(data):
     join_room(room)
     print(f"🚪 {request.sid} joined {room}")
 
-    # 최근 메시지 히스토리 전송
     for msg in model.fetch_recent(room):
         emit("new_message", msg, room=request.sid)
 
@@ -105,8 +157,8 @@ def on_chat(data):
     payload = model.build_payload(room, user, msg)
     emit("new_message", payload, room=room)
 
-    model.save_message(payload)      # Mongo 저장
-    model.publish_kafka(payload)     # Kafka 브로커로 발행
+    model.save_message(payload)
+    model.publish_kafka(payload)
 
 @socketio.on("leave")
 def on_leave(data):

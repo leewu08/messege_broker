@@ -1,3 +1,4 @@
+<!-- templates/base.html -->
 <!doctype html>
 <html lang="ko">
 <head>
@@ -6,12 +7,20 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body class="p-6">
-<!-- 파셜/유저접속  -->
-{% include "partials/_user_list.html" %}  
 
-{% block content %}{% endblock %}
+  <!-- 🔹 접속자 목록 (항상 HTML 먼저 렌더링) -->
+  {% include "partials/_user_list.html" %}
 
-  <!-- ▽ 모든 화면에서 공용으로 쓰는 Socket.IO 클라이언트 -->
+  {% include "partials/header.html" %}
+  <!-- 🔹 본문 블록 -->
+  {% block content %}{% endblock %}
+
+  <!-- 🔹 username을 JS로 넘겨줌 -->
+  <script>
+    window.username = "{{ username | default('Anon') }}";
+  </script>
+
+  <!-- 🔹 Socket.IO -->
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
   <script src="{{ url_for('static', filename='socket.js') }}"></script>
 </body>

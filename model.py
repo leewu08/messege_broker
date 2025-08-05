@@ -17,6 +17,8 @@ from typing import Any, Dict, List
 from kafka import KafkaConsumer, KafkaProducer
 from pymongo import MongoClient
 
+
+
 # ─────────────────────── 환경 설정 ───────────────────────
 MONGO_URI: str       = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
 KAFKA_BOOTSTRAP: str = os.getenv("KAFKA_BOOTSTRAP", "localhost:9092")
