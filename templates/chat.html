@@ -53,18 +53,22 @@
   // ✅ socket 연결 시 user명 전달
   const socket = io(`/?user=${encodeURIComponent(rawUsername)}`);
 
-  // ✅ 접속자 목록 업데이트 받기
-  socket.on("user_list", (users) => {
-    const userList = document.getElementById("user-list-ul");
-    if (!userList) return;
-    userList.innerHTML = "";
-    users.forEach((user) => {
-      const li = document.createElement("li");
-      li.textContent = user;
-      userList.appendChild(li);
-    });
-  });
+// ✅ 접속자 목록 업데이트 받기
+socket.on("user_list", (users) => {
+  const userList = document.getElementById("user-list-ul");
+  if (!userList) return;
 
+  userList.innerHTML = "";
+
+  // ✅ Set으로 중복 제거
+  const uniqueUsers = [...new Set(users)];
+
+  uniqueUsers.forEach((user) => {
+    const li = document.createElement("li");
+    li.textContent = user;
+    userList.appendChild(li);
+  });
+});
   socket.on('connect', () => console.log('✅ 서버와 연결됨'));
 
   socket.on('new_message', data => {
