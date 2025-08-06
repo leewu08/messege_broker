@@ -316,7 +316,7 @@ def on_join(data):
     recent_messages = model.fetch_recent(normalized_room)
     for msg in recent_messages:
         emit("new_message", msg, room=request.sid)
-
+        
 @socketio.on("chat_message")
 def on_chat(data):
     room = data.get("room")
@@ -325,7 +325,13 @@ def on_chat(data):
     if not room or not msg:
         return
 
-    sender = online.get(request.sid, "Anon")
+    # ✅ JWT에서 sender 확인
+    token = request.cookies.get("access_token")
+    try:
+        decoded = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        sender = decoded.get("username") or "익명"
+    except:
+        sender = "익명"
 
     # ✅ DM 룸 유효성 검사
     if not room.startswith("dm_") or len(room.split("_")) != 3:
@@ -354,7 +360,6 @@ def on_chat(data):
     # ✅ 저장 및 Kafka 발행
     model.save_message(payload)
     model.publish_kafka(payload)
-    
 @socketio.on("leave")
 def on_leave(data):
     room = data.get("room")
