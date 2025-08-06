@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ username }}님의 게시글</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 700px;
+      margin: 2rem auto;
+    }
+    ul {
+      list-style: none;
+      padding-left: 0;
+    }
+    li {
+      margin-bottom: 1rem;
+      padding: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    .post-title {
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin-bottom: 0.25rem;
+    }
+    .post-meta {
+      color: #666;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>📝 {{ username }}님의 작성글</h1>
+
+  <ul>
+    {% for post in posts %}
+      <li>
+        <div class="post-title">
+          <a href="{{ url_for('view_post', post_id=post._id) }}">
+            {{ post.title or '[제목 없음]' }}
+          </a>
+        </div>
+        <div class="post-meta">
+          {{ post.created_at or '' }}
+        </div>
+      </li>
+    {% else %}
+      <li>🕳️ 아직 작성된 게시글이 없습니다.</li>
+    {% endfor %}
+  </ul>
+
+  <p><a href="{{ url_for('post') }}">← 전체 게시판 보기</a></p>
+</body>
+</html>

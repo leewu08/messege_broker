@@ -97,24 +97,50 @@ def view_post(post_id):
         return "게시글이 존재하지 않습니다.", 404
     return render_template('view.html', post=post)
 
+
 # ✅ 게시글 작성
 @app.route('/post/add', methods=['GET', 'POST'])
 def add_post():
     if request.method == 'POST':
         title = request.form['title']
         content = request.form['content']
-        author = request.form.get('author', '익명')
 
+        # ✅ JWT 토큰에서 사용자 이름 추출
+        token = request.cookies.get("access_token")
+        author = "익명"  # 기본값
+
+        if token:
+            try:
+                data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+                author = data.get("username", "익명")
+            except jwt.ExpiredSignatureError:
+                return redirect(url_for('login_page'))
+            except jwt.InvalidTokenError:
+                return redirect(url_for('login_page'))
+
+        # ✅ 파일 업로드 처리
         file = request.files.get('file')
         filename = None
         if file and file.filename:
             filename = secure_filename(file.filename)
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
 
+        # ✅ 모델에 저장
         model.create_post(title, content, author, filename)
+
         return redirect(url_for('post'))
-    
+
+    # GET 요청일 때 글쓰기 폼 렌더링
     return render_template('add.html')
+
+@app.route('/user_posts')
+def user_posts():
+    username = request.args.get('user')
+    if not username:
+        return "❌ 사용자명이 없습니다.", 400
+
+    posts = model.get_posts_by_author(username)
+    return render_template('user_posts.html', username=username, posts=posts)
 
 # ✅ 게시글 수정
 @app.route('/post/edit/<string:post_id>', methods=['GET', 'POST'])

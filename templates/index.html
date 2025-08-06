@@ -3,9 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <title>Kafka Chat – 홈</title>
-
-
-
+  <style>
+    .user-dropdown-content {
+      display: none;
+      position: absolute;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      padding: 0.5rem;
+      z-index: 999;
+    }
+    .user-dropdown-content button {
+      display: block;
+      margin-bottom: 0.25rem;
+      width: 100%;
+    }
+  </style>
 </head>
 <body>
 
@@ -13,7 +25,6 @@
 
   {% if username %}
     <p><strong>{{ username }}</strong>님 반갑습니다!</p>
-    <button onclick="location.href='{{ url_for('chat_page') }}'">💬 채팅하러 가기</button>
     <button onclick="location.href='{{ url_for('post') }}'">📄 게시판 가기</button>
     <p><a href="{{ url_for('logout') }}">🔓 로그아웃</a></p>
 
@@ -23,13 +34,6 @@
       <ul id="user-list-ul">
         <li>접속자 정보를 불러오는 중...</li>
       </ul>
-    </div>
-
-    <div><pre>
-
-    
-      
-    </pre>
     </div>
 
     <!-- username을 JS에 넘겨줌 -->
@@ -61,36 +65,58 @@
 
             li.appendChild(span);
 
-            if (user !== username) {
-              const menu = document.createElement("div");
-              menu.classList.add("user-dropdown-content");
-              menu.style.display = "none";
+            const menu = document.createElement("div");
+            menu.classList.add("user-dropdown-content");
+            menu.style.display = "none";
 
+            if (user === username) {
+              // ✅ 자기 자신 전용 드롭다운
+              const btnProfile = document.createElement("button");
+              btnProfile.textContent = "🔐 내 정보 보기";
+              btnProfile.onclick = () => alert("내 정보 보기 페이지로 이동");
+
+              const btnMyPosts = document.createElement("button");
+              btnMyPosts.textContent = "📝 내가 쓴 글 보기";
+              btnMyPosts.onclick = () => {
+                window.location.href = `/user_posts?user=${encodeURIComponent(username)}`;
+              };
+
+              const btnSettings = document.createElement("button");
+              btnSettings.textContent = "⚙️ 내 설정";
+              btnSettings.onclick = () => alert("⚙️ 설정 페이지는 준비 중입니다.");
+
+              menu.append(btnProfile, btnMyPosts, btnSettings);
+            } else {
+              // ✅ 다른 사람 전용 드롭다운
               const btnDetail = document.createElement("button");
-              btnDetail.textContent = "상세정보";
+              btnDetail.textContent = "🔍 상세정보";
               btnDetail.onclick = () => alert(`🔍 ${user} 상세정보 보기`);
 
               const btnPosts = document.createElement("button");
-              btnPosts.textContent = "작성글 보기";
-              btnPosts.onclick = () => alert(`📝 ${user}의 작성글 보기`);
+              btnPosts.textContent = "📝 작성글 보기";
+              btnPosts.onclick = () => {
+                window.location.href = `/user_posts?user=${encodeURIComponent(user)}`;
+              };
 
               const btnDM = document.createElement("button");
-              btnDM.textContent = "1:1 대화하기";
+              btnDM.textContent = "💬 1:1 대화하기";
               btnDM.onclick = () => {
                 const dmRoom = generateDMRoom(username, user);
                 joinRoom(dmRoom);
               };
 
               menu.append(btnDetail, btnPosts, btnDM);
-              li.appendChild(menu);
-
-              span.addEventListener("click", (e) => {
-                const all = document.querySelectorAll(".user-dropdown-content");
-                all.forEach(m => { if (m !== menu) m.style.display = "none"; });
-                menu.style.display = menu.style.display === "block" ? "none" : "block";
-                e.stopPropagation();
-              });
             }
+
+            li.appendChild(menu);
+
+            // 드롭다운 토글
+            span.addEventListener("click", (e) => {
+              const all = document.querySelectorAll(".user-dropdown-content");
+              all.forEach(m => { if (m !== menu) m.style.display = "none"; });
+              menu.style.display = menu.style.display === "block" ? "none" : "block";
+              e.stopPropagation();
+            });
 
             userList.appendChild(li);
           });
@@ -129,6 +155,5 @@
       <a href="{{ url_for('register_page') }}">회원가입</a>
     </p>
   {% endif %}
-
 </body>
 </html>

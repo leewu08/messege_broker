@@ -8,8 +8,8 @@
   
   {% if username %}
     <p><strong>{{ username }}</strong>님 반갑습니다!</p>
-    <button onclick="location.href='{{ url_for('chat_page') }}'">💬 채팅하러 가기</button>
-    <button onclick="location.href='{{ url_for('post') }}'">📄 게시판 가기</button>
+    <!-- <button onclick="location.href='{{ url_for('chat_page') }}'">💬 채팅하러 가기</button> -->
+    <button onclick="location.href='{{ url_for('index') }}'">📄 인덱스 가기</button>
     <p><a href="{{ url_for('logout') }}">🔓 로그아웃</a></p>
 
   {% endif %}
@@ -55,78 +55,98 @@
 
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script>
-      document.addEventListener("DOMContentLoaded", () => {
-        const username = window.username || `Anon-${Math.random().toString(36).slice(2, 6)}`;
-        const socket = io(`/?user=${encodeURIComponent(username)}`);
+  document.addEventListener("DOMContentLoaded", () => {
+    const username = window.username || `Anon-${Math.random().toString(36).slice(2, 6)}`;
+    const socket = io(`/?user=${encodeURIComponent(username)}`);
 
-        socket.on("user_list", (users) => {
-          const userList = document.getElementById("user-list-ul");
-          if (!userList) return;
+    socket.on("user_list", (users) => {
+      const userList = document.getElementById("user-list-ul");
+      if (!userList) return;
 
-          userList.innerHTML = "";
-          const uniqueUsers = [...new Set(users)];
+      userList.innerHTML = "";
+      const uniqueUsers = [...new Set(users)];
 
-          uniqueUsers.forEach((user) => {
-            const li = document.createElement("li");
-            li.classList.add("user-dropdown");
+      uniqueUsers.forEach((user) => {
+        const li = document.createElement("li");
+        li.classList.add("user-dropdown");
 
-            const span = document.createElement("span");
-            span.textContent = user;
-            span.style.cursor = "pointer";
-            span.style.fontWeight = "bold";
+        const span = document.createElement("span");
+        span.textContent = user;
+        span.style.cursor = "pointer";
+        span.style.fontWeight = "bold";
 
-            li.appendChild(span);
+        li.appendChild(span);
 
-            if (user !== username) {
-              const menu = document.createElement("div");
-              menu.classList.add("user-dropdown-content");
-              menu.style.display = "none";
+        const menu = document.createElement("div");
+        menu.classList.add("user-dropdown-content");
+        menu.style.display = "none";
 
-              const btnDetail = document.createElement("button");
-              btnDetail.textContent = "상세정보";
-              btnDetail.onclick = () => alert(`🔍 ${user} 상세정보 보기`);
+        if (user === username) {
+          // ✅ 자기 자신 전용 드롭다운
+          const btnProfile = document.createElement("button");
+          btnProfile.textContent = "🔐 내 정보 보기";
+          btnProfile.onclick = () => alert("내 정보 보기 페이지로 이동");
 
-              const btnPosts = document.createElement("button");
-              btnPosts.textContent = "작성글 보기";
-              btnPosts.onclick = () => alert(`📝 ${user}의 작성글 보기`);
+          const btnMyPosts = document.createElement("button");
+          btnMyPosts.textContent = "📝 내가 쓴 글 보기";
+          btnMyPosts.onclick = () => {
+            window.location.href = `/user_posts?user=${encodeURIComponent(username)}`;
+          };
 
-              const btnDM = document.createElement("button");
-              btnDM.textContent = "1:1 대화하기";
-              btnDM.onclick = () => {
-                const dmRoom = generateDMRoom(username, user);
-                joinRoom(dmRoom);
-              };
+          const btnSettings = document.createElement("button");
+          btnSettings.textContent = "⚙️ 내 설정";
+          btnSettings.onclick = () => alert("⚙️ 설정 페이지는 준비 중입니다.");
 
-              menu.append(btnDetail, btnPosts, btnDM);
-              li.appendChild(menu);
+          menu.append(btnProfile, btnMyPosts, btnSettings);
+        } else {
+          // ✅ 다른 사람 전용 드롭다운
+          const btnDetail = document.createElement("button");
+          btnDetail.textContent = "🔍 상세정보";
+          btnDetail.onclick = () => alert(`🔍 ${user} 상세정보 보기`);
 
-              span.addEventListener("click", (e) => {
-                const all = document.querySelectorAll(".user-dropdown-content");
-                all.forEach(m => { if (m !== menu) m.style.display = "none"; });
-                menu.style.display = menu.style.display === "block" ? "none" : "block";
-                e.stopPropagation();
-              });
-            }
+          const btnPosts = document.createElement("button");
+          btnPosts.textContent = "📝 작성글 보기";
+          btnPosts.onclick = () => alert(`📝 ${user}의 작성글 보기`);
 
-            userList.appendChild(li);
-          });
-        });
+          const btnDM = document.createElement("button");
+          btnDM.textContent = "1:1 대화하기";
+          btnDM.onclick = () => {
+            const dmRoom = generateDMRoom(username, user);
+            joinRoom(dmRoom);
+          };
 
-        // 바깥 클릭 시 드롭다운 닫기
-        document.addEventListener("click", () => {
+          menu.append(btnDetail, btnPosts, btnDM);
+        }
+
+        li.appendChild(menu);
+
+        // 드롭다운 토글
+        span.addEventListener("click", (e) => {
           const all = document.querySelectorAll(".user-dropdown-content");
-          all.forEach(menu => {
-            menu.style.display = "none";
-          });
+          all.forEach(m => { if (m !== menu) m.style.display = "none"; });
+          menu.style.display = menu.style.display === "block" ? "none" : "block";
+          e.stopPropagation();
         });
+
+        userList.appendChild(li);
       });
+    });
 
-      function generateDMRoom(userA, userB) {
-        const [u1, u2] = [userA, userB].sort();
-        return `dm_${u1}_${u2}`;
-      }
+    // 바깥 클릭 시 드롭다운 닫기
+    document.addEventListener("click", () => {
+      const all = document.querySelectorAll(".user-dropdown-content");
+      all.forEach(menu => {
+        menu.style.display = "none";
+      });
+    });
+  });
 
-      function joinRoom(roomName) {
-        window.location.href = `/chat?room=${roomName}`;
-      }
-    </script>
+  function generateDMRoom(userA, userB) {
+    const [u1, u2] = [userA, userB].sort();
+    return `dm_${u1}_${u2}`;
+  }
+
+  function joinRoom(roomName) {
+    window.location.href = `/chat?room=${roomName}`;
+  }
+</script>

@@ -165,5 +165,13 @@ def delete_post(post_id: str) -> bool:
         return result.deleted_count == 1
     except Exception:
         return False
-
-
+    
+def get_posts_by_author(username: str) -> List[Dict[str, Any]]:
+    """
+    특정 작성자의 게시글 리스트 반환
+    """
+    cursor = posts_col.find({'author': username}).sort("created_at", -1)
+    return [
+        {**doc, "_id": str(doc["_id"])}
+        for doc in cursor
+    ]

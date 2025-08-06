@@ -3,10 +3,34 @@
 <head>
   <meta charset="UTF-8">
   <title>{{ post.title }}</title>
+  <style>
+    .user-dropdown-content {
+      display: none;
+      position: absolute;
+      background-color: #f9f9f9;
+      border: 1px solid #ccc;
+      padding: 0.5rem;
+      z-index: 999;
+      margin-top: 0.5rem;
+    }
+    .user-dropdown-content button {
+      display: block;
+      margin-bottom: 0.25rem;
+      width: 100%;
+    }
+  </style>
 </head>
 <body>
   <h1>{{ post.title }}</h1>
-  <p><strong>작성자:</strong> {{ post.author }}</p>
+
+  <p>
+    <strong>작성자:</strong>
+    <span class="user-dropdown" data-user="{{ post.author }}" style="cursor: pointer; font-weight: bold;">
+      {{ post.author }}
+    </span>
+    <div class="user-dropdown-content" id="author-dropdown"></div>
+  </p>
+
   <p>{{ post.content }}</p>
 
   {% if post.filename %}
@@ -21,5 +45,80 @@
     <a href="{{ url_for('delete_post', post_id=post._id) }}">🗑️ 삭제</a> |
     <a href="{{ url_for('post') }}">← 게시판으로</a>
   </p>
+
+  <!-- ✅ 로그인 사용자명 넘겨줌 -->
+  <script>
+    window.username = "{{ username }}";
+  </script>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const trigger = document.querySelector(".user-dropdown");
+      const dropdown = document.getElementById("author-dropdown");
+      const currentUser = window.username;
+      const targetUser = trigger.dataset.user;
+
+      if (!trigger || !dropdown) return;
+
+      // 사용자 클릭 시 드롭다운 생성
+      trigger.addEventListener("click", (e) => {
+        e.stopPropagation();
+        dropdown.innerHTML = "";
+
+        if (currentUser && targetUser) {
+          if (currentUser === targetUser) {
+            // ✅ 자기 자신일 경우
+            const btnProfile = document.createElement("button");
+            btnProfile.textContent = "🔐 내 정보 보기";
+            btnProfile.onclick = () => alert("내 프로필 보기 페이지로 이동");
+
+            const btnMyPosts = document.createElement("button");
+            btnMyPosts.textContent = "📝 내가 쓴 글 보기";
+            btnMyPosts.onclick = () => {
+              window.location.href = `/user_posts?user=${encodeURIComponent(currentUser)}`;
+            };
+
+            const btnSettings = document.createElement("button");
+            btnSettings.textContent = "⚙️ 내 설정";
+            btnSettings.onclick = () => alert("설정 페이지는 아직 미구현입니다");
+
+            dropdown.append(btnProfile, btnMyPosts, btnSettings);
+          } else {
+            // ✅ 다른 사람일 경우
+            const btnDetail = document.createElement("button");
+            btnDetail.textContent = "🔍 상세정보";
+            btnDetail.onclick = () => alert(`🔍 ${targetUser} 상세정보 보기`);
+
+            const btnPosts = document.createElement("button");
+            btnPosts.textContent = "📝 작성글 보기";
+            btnPosts.onclick = () => {
+              window.location.href = `/user_posts?user=${encodeURIComponent(targetUser)}`;
+            };
+
+            const btnDM = document.createElement("button");
+            btnDM.textContent = "💬 1:1 대화하기";
+            btnDM.onclick = () => {
+              const dmRoom = generateDMRoom(currentUser, targetUser);
+              window.location.href = `/chat?room=${dmRoom}`;
+            };
+
+            dropdown.append(btnDetail, btnPosts, btnDM);
+          }
+
+          dropdown.style.display = "block";
+        }
+      });
+
+      // 바깥 클릭 시 드롭다운 닫기
+      document.addEventListener("click", () => {
+        dropdown.style.display = "none";
+      });
+    });
+
+    function generateDMRoom(userA, userB) {
+      const [u1, u2] = [userA, userB].sort();
+      return `dm_${u1}_${u2}`;
+    }
+  </script>
 </body>
 </html>
